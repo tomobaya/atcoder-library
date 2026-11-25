@@ -56,19 +56,43 @@ def union_section(ary):
   if leng <= 1:
     return ary
   
+  """
+  ### 処理の概要
+  ary を見ながら、返り値 ret を作っていく。
+  i, j を右へと動かしていく。どちらも左へは戻らない。
+  j = i+1 とし、+1 ずつ動かす。マージできる間はマージし続け、できなくなったらそこで終了。
+  最後に i = j として、今進んだ分だけ i を一気に加算する。
+
+  最終的に追加される範囲 (L, nextR) について。
+  L は固定。なぜなら、追加範囲の左端を nextL とすると、L が居る以上少なくとも L < nextL にはならない。
+  じゃあ nextL < L はどうかというと、そうなるような場合は以前の while ループの中で既に飛び越してしまっている。
+  なので、L はその時点での配列 ret 内の最大値より必ず 2 以上大きい。よって、新たな追加範囲 nextL は必ず L になる。
+  
+  変数 nextR は
+  L----------R
+          L[a]--------R[a]
+            L[b]----R[b]
+  だったら nextR = R[a] で、
+  L-------------------------R
+          L[a]--------R[a]
+            L[b]----R[b]
+  だったら nextR = R
+  a まで見た後、b を見て、 b <= nextR + 1 であることを確認してさらに j を伸ばす。
+  結果、次のループはその次を L[c] とすると、 i=c から始まることとなる。
+
+  """
   i = 0
   ret = []
   while i <= leng - 1:
-    (L1, R1) = ary[i]
+    (L, R) = ary[i]
+    nextR = R
     #print(f"{L1=}, {R1=}")
-    j = i
-    newR = ary[i][1]
-    while ary[j][0] <= newR + 1:
-      newR = max(newR, ary[j][1])
+    
+    j = i + 1 # 比較先を右へと伸ばしていく
+    while j < leng and ary[j][0] <= nextR + 1: # 比較先の L が暫定 nextR とくっつくようなら次々伸ばしていく
+      nextR = max(nextR, ary[j][1])
       j += 1
-      if j == leng:
-        break
-    ret.append((L1, newR))
+    ret.append((L, nextR))
     #print(ret)
     i = j 
   
@@ -94,7 +118,46 @@ LQ RQ
 2 9
 6 6
 """
+from sortedcontainers import SortedList
+Q = int(input())
+INF = 10**20
+intervals = SortedList([(-INF, -INF), (INF, INF)])
 
+for _ in range(Q):
+  L, R = map(int, input().split())
+  removed = [] # マージされて消える予定の区間を記録しておく。後で消す。
+  # L の入る位置を見つける
+  idx = intervals.bisect_left((L, -INF)) - 1
+  # (L, R) を越えない最大の intervals[idx] を求めることにより
+  # これにより [idx], (L, R), [idx+1] という並びになる。  
+  if L <= intervals[idx][1] + 1 : # L が l_idx とマージされる場合
+    L = intervals[idx][0]
+    R = max(R, intervals[idx][1])
+    removed.append(idx)
+
+  # L が確定したので次は R。1つずつ比べていってマージできる限り右へと伸ばす。
+  idx += 1
+  while (intervals[idx][1] < INF):
+    (yotei_l, yotei_r) = intervals[idx]
+    if R+1 < yotei_l:
+      # L < R < R+1 < yotei_l < yotei_r の並びになる場合、マージされないので R もこれで確定
+      break
+    else:
+      # マージされる場合
+      # * L < R < R+1 == yotei_l < yotei_r のとき、マージされて (L, yotei_r)
+      # * L < yotei_l <= R < R+1 < yotei_r のとき、マージされて (L, yotei_r)
+      # * L < yotei_l < yotei_r < R のとき、マージされて (L, R)
+      R = max(R, yotei_r)
+      removed.append(idx)
+      idx += 1
+  
+  # マージされた既存区間を削除する
+  for i in reversed(removed): # 後ろから消すことで index のズレを回避
+    intervals.pop(i)
+  intervals.add((L, R))
+  print(intervals)
+
+"""
 from sortedcontainers import SortedList
 Q = int(input())
 INF = 10**20
@@ -132,6 +195,6 @@ for _ in range(Q):
     intervals.pop(i)
   intervals.add((newL, newR))
   print(intervals)
-
+"""
 
 
